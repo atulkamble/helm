@@ -12,7 +12,7 @@ cd helm
 kubectl get nodes
 helm lint ./mywebapp
 helm template mynginx ./mywebapp
-helm install mynginx ./mywebapp -n webapp --create-namespace --wait --timeout 5m
+helm upgrade --install mynginx ./mywebapp -n webapp --create-namespace --wait --timeout 5m
 kubectl get all -n webapp
 kubectl port-forward -n webapp svc/mynginx-mywebapp 8080:80
 ```
@@ -30,6 +30,90 @@ Open `http://localhost:8080` on the computer running port forwarding. Run the `p
 | `mywebapp/templates/service.yaml` | Templated Kubernetes Service |
 
 > The chart sources are already committed. The `helm create` exercise below is optional for learning scaffolding. Deployments require a working Kubernetes cluster and network access to pull the NGINX image.
+
+## Troubleshooting: Helm release name already in use (November 2026 lab)
+
+When re-running `helm install mynginx . -n webapp` after an earlier installation, Helm may report:
+
+```text
+Error: INSTALLATION FAILED: release name check failed: cannot reuse a name that is still in use
+```
+
+This is a **release lifecycle issue**, not a YAML syntax failure. `helm lint .` can pass and `helm template mynginx .` can render correctly while the release name remains allocated in namespace `webapp`.
+
+### Inspect the existing release
+
+From `mywebapp/`:
+
+```bash
+helm list -A
+helm list -n webapp --all
+helm status mynginx -n webapp
+helm history mynginx -n webapp
+```
+
+### Preferred: idempotent install or upgrade
+
+```bash
+helm lint .
+helm template mynginx .
+helm upgrade --install mynginx . \
+  --namespace webapp \
+  --create-namespace \
+  --wait \
+  --timeout 5m
+```
+
+The first invocation installs the chart. Later invocations upgrade the same release. For an existing deployed release, `helm upgrade mynginx . -n webapp --wait` also works.
+
+### Alternative for disposable training releases
+
+```bash
+helm uninstall mynginx -n webapp
+helm install mynginx . -n webapp --create-namespace --wait --timeout 5m
+```
+
+**Caution:** Uninstall deletes release-managed Kubernetes resources; do not do this for workloads you need to keep.
+
+### Verify and access NGINX
+
+```bash
+helm status mynginx -n webapp
+kubectl get deployments,pods,services -n webapp
+kubectl rollout status deployment/mynginx-mywebapp -n webapp
+kubectl port-forward -n webapp svc/mynginx-mywebapp 8080:80
+```
+
+Visit <http://localhost:8080> from the computer running port forwarding.
+
+With default values, expect `mynginx-mywebapp` as both Deployment and ClusterIP Service, **2** NGINX replicas, image `nginx:1.27`, and Service port **80**.
+
+### Inspect project structure
+
+```text
+mywebapp/
+├── Chart.yaml
+├── charts/                 # optional dependencies; may be empty
+├── templates/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── values.yaml
+└── custom-values.yaml      # optional override committed in this repo
+```
+
+`charts` is a directory, so use `ls -la charts/` or `tree charts/` rather than `cat charts`.
+
+### Scale, inspect history, and roll back
+
+```bash
+helm upgrade mynginx . -n webapp --set replicaCount=3 --wait
+kubectl get pods -n webapp
+helm history mynginx -n webapp
+# Replace REVISION with the revision you actually intend to restore
+helm rollback mynginx REVISION -n webapp --wait
+```
+
+Do not assume revision 1 is the immediately previous revision.
 
 ## 1. Helm architecture
 
