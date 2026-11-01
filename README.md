@@ -4,7 +4,36 @@ Helm is the most widely used package manager for Kubernetes. It helps you instal
 
 This lab works with Amazon EKS, kubeadm on EC2 (Amazon Linux), Minikube, and AKS.
 
+## Quick start from this repository
+
+```bash
+git clone https://github.com/atulkamble/helm.git
+cd helm
+kubectl get nodes
+helm lint ./mywebapp
+helm template mynginx ./mywebapp
+helm install mynginx ./mywebapp -n webapp --create-namespace --wait --timeout 5m
+kubectl get all -n webapp
+kubectl port-forward -n webapp svc/mynginx-mywebapp 8080:80
+```
+
+Open `http://localhost:8080` on the computer running port forwarding. Run the `port-forward` command in a separate terminal. If Kubernetes is on EC2, use an SSH tunnel or port-forward locally with a working kubeconfig.
+
+### Included project files
+
+| Path | Purpose |
+| --- | --- |
+| `mywebapp/Chart.yaml` | Chart metadata |
+| `mywebapp/values.yaml` | Default NGINX image, two replicas, and ClusterIP service |
+| `mywebapp/custom-values.yaml` | Override with four replicas |
+| `mywebapp/templates/deployment.yaml` | Templated Kubernetes Deployment |
+| `mywebapp/templates/service.yaml` | Templated Kubernetes Service |
+
+> The chart sources are already committed. The `helm create` exercise below is optional for learning scaffolding. Deployments require a working Kubernetes cluster and network access to pull the NGINX image.
+
 ## 1. Helm architecture
+
+Helm CLI → Kubernetes API server → rendered Kubernetes Deployment and Service → NGINX Pods. Helm stores release metadata in the target namespace, enabling upgrades and rollbacks.
 
 ## 2. Prerequisites
 
@@ -70,7 +99,7 @@ helm show readme bitnami/nginx
 
 For this exercise, use a lightweight training chart that creates an NGINX Deployment and Service without depending on an external chart's changing image requirements.
 
-First create a chart in Practice 5 below, then install it with:
+The ready-to-run chart is included in this repository under `mywebapp/` (the source for Practice 5). Clone this repository first, then install it with:
 
 ```
 helm install mynginx ./mywebapp \
@@ -125,11 +154,12 @@ Helm can manage releases separately in each namespace.
 Create a new chart:
 
 ```
-helm create mywebapp
-
+# If following along with the existing repository:
 cd mywebapp
-
 ls -R
+
+# To scaffold a new chart from scratch in a separate directory:
+# helm create mywebapp
 ```
 
 A Helm chart has this structure:
@@ -148,7 +178,7 @@ mywebapp/
     └── ...
 ```
 
-For a minimal training project, replace the generated templates:
+When creating your own chart from scratch, remove the generated templates before adding the files shown below. Do not run this in the cloned project, because its templates are already provided:
 
 ```
 rm -rf templates/*
@@ -235,7 +265,7 @@ helm install mynginx . \
   --timeout 5m
 ```
 
-Run the last command only if you haven't already installed the `mynginx` release in Practice 2.
+Run the last command only if you haven't already installed the `mynginx` release in Practice 2. For an existing release, use `helm upgrade mynginx . -n webapp --wait` instead.
 
 ## 9. Practice 6 – Upgrade an application
 
@@ -347,6 +377,7 @@ Install from the package:
 ```
 helm install packaged-app ./mywebapp-0.1.0.tgz \
   -n development \
+  --create-namespace \
   --wait
 ```
 
@@ -365,6 +396,7 @@ Install the same chart under different release names:
 ```
 helm install dev-app ./mywebapp \
   -n development \
+  --create-namespace \
   --set replicaCount=1
 
 helm install prod-app ./mywebapp \

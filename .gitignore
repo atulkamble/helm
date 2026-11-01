@@ -1,0 +1,5 @@
+# Generated Helm packages
+*.tgz
+
+# Local editor files
+.DS_Store

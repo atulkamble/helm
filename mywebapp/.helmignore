@@ -1,0 +1,6 @@
+# Files excluded when packaging the chart
+.DS_Store
+.git/
+*.swp
+*.tmp
+custom-values.yaml
